@@ -1,28 +1,19 @@
 package com.alexeiboriskin.vkaddfriends.controllers;
 
 import com.alexeiboriskin.vkaddfriends.services.VkService;
-import com.vk.api.sdk.client.TransportClient;
-import com.vk.api.sdk.client.VkApiClient;
-import com.vk.api.sdk.client.actors.UserActor;
-import com.vk.api.sdk.exceptions.ApiException;
-import com.vk.api.sdk.exceptions.ClientException;
-import com.vk.api.sdk.httpclient.HttpTransportClient;
-import com.vk.api.sdk.objects.UserAuthResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 @Slf4j
 @Controller
 public class VkAuthController {
 
-    private final Integer APP_ID = 6790669;
-    private final String CLIENT_SECRET = "e7ptpOy22xFSJWQbe3EN";
-    private final String REDIRECT_URI = "http://localhost:8082/vk-code";
-
     private final VkService vkService;
+    private Integer appId;
 
     @Autowired
     public VkAuthController(VkService vkService) {
@@ -34,30 +25,32 @@ public class VkAuthController {
         return "redirect:" + receivingCodeUri();
     }
 
-    @GetMapping(value = "/vk-code")
-    public String vkGetCode(@RequestParam("code") String code) throws ClientException, ApiException {
+    @PostMapping(value = "/vk-token")
+    public String vkParseUrl(@RequestParam("urlstring") String urlString) {
 
-            TransportClient transportClient = new HttpTransportClient();
-            VkApiClient vk = new VkApiClient(transportClient);
+        vkService.setToken(urlString.replaceAll(".+(access_token=)", "")
+            .replaceAll("&.+", ""));
+        vkService.setUserId(Integer.parseInt(urlString.replaceAll(".+(user_id=)", "")
+            .replaceAll("&.+", "")));
 
-            UserAuthResponse authResponse =
-                    vk.oauth().userAuthorizationCodeFlow(APP_ID,
-                            CLIENT_SECRET, REDIRECT_URI, code).execute();
+        return "redirect:/upload";
+    }
 
-            UserActor actor = new UserActor(authResponse.getUserId(),
-                    authResponse.getAccessToken());
-            vkService.setActor(actor);
+    @PostMapping(value = "/vk-app")
+    public String vkGetAppData(@RequestParam("appid") Integer appId) {
 
-        return "redirect:/";
+        this.appId = appId;
+
+        return "redirect:/signin";
     }
 
     private String receivingCodeUri() {
 
-        return "https://oauth.vk.com/authorize" + "?client_id=" + APP_ID
+        return "https://oauth.vk.com/authorize" + "?client_id=" + appId
                 + "&display=" + "popup"
-                + "&redirect_uri=" + REDIRECT_URI
-                + "&scope=" + "friends"
-                + "&response_type=" + "code"
+                + "&redirect_uri=" + "https://oauth.vk.com/blank.html"
+                + "&scope=" + "wall,offline,friends"
+                + "&response_type=" + "token"
                 + "&v" + "5.92";
     }
 }

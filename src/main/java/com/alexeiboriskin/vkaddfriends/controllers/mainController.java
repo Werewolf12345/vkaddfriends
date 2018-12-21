@@ -1,12 +1,6 @@
 package com.alexeiboriskin.vkaddfriends.controllers;
 
 import com.alexeiboriskin.vkaddfriends.services.VkService;
-import com.vk.api.sdk.client.TransportClient;
-import com.vk.api.sdk.client.VkApiClient;
-import com.vk.api.sdk.exceptions.ApiException;
-import com.vk.api.sdk.exceptions.ClientException;
-import com.vk.api.sdk.httpclient.HttpTransportClient;
-import com.vk.api.sdk.objects.friends.responses.AddResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -14,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.ModelAndView;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -35,43 +30,35 @@ public class mainController {
         this.vkService = vkService;
     }
 
-    @GetMapping(value = "/")
+    @GetMapping(value = "/signin")
     public String vkAuthPage() {
         return "signin";
     }
 
+    @GetMapping(value = "/index")
+    public String appDataInput() {
+        return "index";
+    }
+
     @GetMapping(value = "/upload")
-    public String uploadFile() {
-        return "upload";
+    public ModelAndView uploadFile(@RequestParam(value = "message",required = false) String message) {
+        ModelAndView model = new ModelAndView();
+        model.setViewName("upload");
+
+        if (message != null) {
+            model.addObject("message", message);
+        }
+
+        return model;
     }
 
     @PostMapping("/upload")
     public String handleFileUpload(@RequestParam("file") MultipartFile file) {
 
         List<Integer> listOfNicks = processUploadedFile(file);
+        vkService.appendToList(listOfNicks);
 
-        if (!listOfNicks.isEmpty()) {
-            TransportClient transportClient = new HttpTransportClient();
-            VkApiClient vk = new VkApiClient(transportClient);
-
-            AddResponse response = null;
-            for (Integer id : listOfNicks) {
-                try {
-
-                    response = vk
-                        .friends()
-                        .add(vkService.getActor(), id)
-                        .text("Hi! Please add me as your best fried ASAP")
-                        .execute();
-
-                } catch (ApiException e) {
-                    log.error("Vk API exception");
-                } catch (ClientException e) {
-                    log.error("Vk client exception");
-                }
-            }
-        }
-        return "redirect:/upload";
+        return "redirect:/upload?message=" + "Added " + listOfNicks.size() + " friends to waiting list";
     }
 
     private List<Integer> processUploadedFile(MultipartFile file) {
